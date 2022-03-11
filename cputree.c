@@ -1,22 +1,22 @@
-/* 
+/*
  * Copyright (C) 2006, Intel Corporation
- * Copyright (C) 2012, Neil Horman <nhorman@tuxdriver.com> 
- * 
+ * Copyright (C) 2012, Neil Horman <nhorman@tuxdriver.com>
+ *
  * This file is part of irqbalance
  *
  * This program file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; version 2 of the License.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
  * for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program in a file named COPYING; if not, write to the 
- * Free Software Foundation, Inc., 
- * 51 Franklin Street, Fifth Floor, 
+ * along with this program in a file named COPYING; if not, write to the
+ * Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301 USA
  */
 
@@ -52,18 +52,19 @@ cpumask_t banned_cpus;
 
 cpumask_t cpu_possible_map;
 
-/* 
-   it's convenient to have the complement of banned_cpus available so that 
+/*
+   it's convenient to have the complement of banned_cpus available so that
    the AND operator can be used to mask out unwanted cpus
 */
 cpumask_t unbanned_cpus;
 
-static struct topo_obj* add_cache_domain_to_package(struct topo_obj *cache, 
+// 将 cache_domain 结构加入到指定的 package 结构中，如果不存在 packageid 的 package结构，则在 package 结构 list 队尾增加一个 packageid 的 package 结构，并将 cache_domain 结构插入
+static struct topo_obj* add_cache_domain_to_package(struct topo_obj *cache,
 						    int packageid, cpumask_t package_mask)
 {
 	GList *entry;
 	struct topo_obj *package;
-	struct topo_obj *lcache; 
+	struct topo_obj *lcache;
 
 	entry = g_list_first(packages);
 
@@ -104,6 +105,8 @@ static struct topo_obj* add_cache_domain_to_package(struct topo_obj *cache,
 
 	return package;
 }
+// 将 cpu 结构加入到指定的 cache结构中，如果指定 cache结构不存在，则在 cache结构 list 队尾增加一个指定的 cache结构，并将 cpu 结构插入
+// 这里传入的 cache_mask 为 L3 缓存共享 cpu map
 static struct topo_obj* add_cpu_to_cache_domain(struct topo_obj *cpu,
 						    cpumask_t cache_mask)
 {
@@ -113,14 +116,14 @@ static struct topo_obj* add_cpu_to_cache_domain(struct topo_obj *cpu,
 
 	entry = g_list_first(cache_domains);
 
-	while (entry) {
+	while (entry) { // 遍历 cache_domains list
 		cache = entry->data;
 		if (cpus_equal(cache_mask, cache->mask))
 			break;
 		entry = g_list_next(entry);
 	}
 
-	if (!entry) {
+	if (!entry) {  // cache_mask 不在已有的 cache_domains 列表中
 		cache = calloc(sizeof(struct topo_obj), 1);
 		if (!cache)
 			return NULL;
@@ -147,8 +150,8 @@ static struct topo_obj* add_cpu_to_cache_domain(struct topo_obj *cpu,
 
 	return cache;
 }
- 
-static void do_one_cpu(char *path)
+
+static void do_one_cpu(char *path)  // path = "/sys/devices/system/cpu/cpu0" 等
 {
 	struct topo_obj *cpu;
 	FILE *file;
@@ -163,7 +166,7 @@ static void do_one_cpu(char *path)
 	unsigned int max_cache_index, cache_index, cache_stat;
 
 	/* skip offline cpus */
-	snprintf(new_path, PATH_MAX, "%s/online", path);
+	snprintf(new_path, PATH_MAX, "%s/online", path); // /sys/devices/system/cpu/cpu#/online, # 表示 cpu 编号
 	file = fopen(new_path, "r");
 	if (file) {
 		char *line = NULL;
@@ -171,9 +174,9 @@ static void do_one_cpu(char *path)
 		if (getline(&line, &size, file)==0)
 			return;
 		fclose(file);
-		if (line && line[0]=='0') {
+		if (line && line[0]=='0') {  // offline 的 cpu 该文件内容为 0
 			free(line);
-			return;
+			return;                  // 忽略掉下线的 cpu
 		}
 		free(line);
 	}
@@ -183,11 +186,8 @@ static void do_one_cpu(char *path)
 		return;
 
 	cpu->obj_type = OBJ_TYPE_CPU;
-
-	cpu->number = strtoul(&path[27], NULL, 10);
-
-	cpu_set(cpu->number, cpu_possible_map);
-	
+	cpu->number = strtoul(&path[27], NULL, 10); // 从路径截取 cpu 编号，转换成 10 进制，这个也可以从 topology/core_id 文件获取
+	cpu_set(cpu->number, cpu_possible_map);    // 根据 cpu 编号设置 bitmap
 	cpu_set(cpu->number, cpu->mask);
 
 	/*
@@ -196,8 +196,8 @@ static void do_one_cpu(char *path)
 	cpus_clear(cache_mask);
 	cpu_set(cpu->number, cache_mask);
 
-	/* if the cpu is on the banned list, just don't add it */
-	if (cpus_intersects(cpu->mask, banned_cpus)) {
+	// 如果当前 cpu 编号被 cpu 黑名单，那么就不添加它
+	if (cpus_intersects(cpu->mask, banned_cpus)) { // 两者相与，如果存在都为1的位,返回1,不存在返回0
 		free(cpu);
 		/* even though we don't use the cpu we do need to count it */
 		core_count++;
@@ -206,14 +206,16 @@ static void do_one_cpu(char *path)
 
 
 	/* try to read the package mask; if it doesn't exist assume solitary */
-	snprintf(new_path, PATH_MAX, "%s/topology/core_siblings", path);
+
+	// core_siblings：在同一个物理 package 下 cpu#'s 硬件线程的内部 kernel map
+	snprintf(new_path, PATH_MAX, "%s/topology/core_siblings", path); // /sys/devices/system/cpu/cpu#/topology/core_siblings
 	file = fopen(new_path, "r");
 	cpu_set(cpu->number, package_mask);
 	if (file) {
 		char *line = NULL;
 		size_t size = 0;
-		if (getline(&line, &size, file)) 
-			cpumask_parse_user(line, strlen(line), package_mask);
+		if (getline(&line, &size, file))
+			cpumask_parse_user(line, strlen(line), package_mask); // 将 bitmap package_mask 表示的值转换成字符串 line
 		fclose(file);
 		free(line);
 	}
@@ -237,7 +239,7 @@ static void do_one_cpu(char *path)
 	cache_stat = 0;
 	do {
 		struct stat sb;
-		snprintf(new_path, PATH_MAX, "%s/cache/index%d/shared_cpu_map", path, cache_index);
+		snprintf(new_path, PATH_MAX, "%s/cache/index%d/shared_cpu_map", path, cache_index); // 与该 cpu 共享这一级缓存的 cpu 编号表，二进制字符串，如 0000,01000001
 		cache_stat = stat(new_path, &sb);
 		if (!cache_stat) {
 			max_cache_index = cache_index;
@@ -245,16 +247,16 @@ static void do_one_cpu(char *path)
 				break;
 			cache_index ++;
 		}
-	} while(!cache_stat);
+	} while(!cache_stat); // 遍历 L1 ~ L3 级缓存
 
 	if (max_cache_index > 0) {
-		snprintf(new_path, PATH_MAX, "%s/cache/index%d/shared_cpu_map", path, max_cache_index);
+		snprintf(new_path, PATH_MAX, "%s/cache/index%d/shared_cpu_map", path, max_cache_index); // L3 级别缓存
 		file = fopen(new_path, "r");
 		if (file) {
 			char *line = NULL;
 			size_t size = 0;
 			if (getline(&line, &size, file))
-				cpumask_parse_user(line, strlen(line), cache_mask);
+				cpumask_parse_user(line, strlen(line), cache_mask); // L3 存在于物理核中， 被多个 core 共享
 			fclose(file);
 			free(line);
 		}
@@ -268,7 +270,7 @@ static void do_one_cpu(char *path)
 			if (!entry)
 				break;
 			if (strstr(entry->d_name, "node")) {
-				nodeid = strtoul(&entry->d_name[4], NULL, 10);
+				nodeid = strtoul(&entry->d_name[4], NULL, 10); // 获得 nodeid，从目录截取
 				break;
 			}
 		} while (entry);
@@ -279,9 +281,11 @@ static void do_one_cpu(char *path)
 	   blank out the banned cpus from the various masks so that interrupts
 	   will never be told to go there
 	 */
+	// 将 cache_mask 和 package_mask 中存在的被 ban 的 cpu 去掉，保证 cpu 是 unbanned
 	cpus_and(cache_mask, cache_mask, unbanned_cpus);
 	cpus_and(package_mask, package_mask, unbanned_cpus);
 
+    // 以下三个函数构建起基本架构，设置 parent 和 children
 	cache = add_cpu_to_cache_domain(cpu, cache_mask);
 	package = add_cache_domain_to_package(cache, packageid, package_mask);
 	add_package_to_node(package, nodeid);
@@ -352,7 +356,7 @@ static void clear_obj_stats(struct topo_obj *d, void *data __attribute__((unused
 
 /*
  * this function removes previous state from the cpu tree, such as
- * which level does how much work and the actual lists of interrupts 
+ * which level does how much work and the actual lists of interrupts
  * assigned to each component
  */
 void clear_work_stats(void)
@@ -360,13 +364,13 @@ void clear_work_stats(void)
 	for_each_object(numa_nodes, clear_obj_stats, NULL);
 }
 
-
+// 遍历系统所有 cpu, 数据来源 /sys/devices/system/cpu/cpu#
 void parse_cpu_tree(void)
 {
 	DIR *dir;
 	struct dirent *entry;
 
-	cpus_complement(unbanned_cpus, banned_cpus);
+	cpus_complement(unbanned_cpus, banned_cpus); // banned_cpus （IRQBALANCE_BANNED_CPUS）按位取反得到 unbanned_cpus
 
 	dir = opendir("/sys/devices/system/cpu");
 	if (!dir)
@@ -376,22 +380,20 @@ void parse_cpu_tree(void)
 		char pad;
 		entry = readdir(dir);
 		/*
- 		 * We only want to count real cpus, not cpufreq and
- 		 * cpuidle
+		 * cpufreq/cpuidle 目录不统计，仅统计 cpuX 的目录
  		 */
 		if (entry &&
 		    sscanf(entry->d_name, "cpu%d%c", &num, &pad) == 1 &&
 		    !strchr(entry->d_name, ' ')) {
 			char new_path[PATH_MAX];
-			sprintf(new_path, "/sys/devices/system/cpu/%s", entry->d_name);
+			sprintf(new_path, "/sys/devices/system/cpu/%s", entry->d_name); // entry->d_name 为 cpu 序号
 			do_one_cpu(new_path);
 		}
 	} while (entry);
-	closedir(dir);  
+	closedir(dir);
 
 	if (debug_mode)
 		dump_tree();
-
 }
 
 
@@ -443,7 +445,7 @@ static gint compare_cpus(gconstpointer a, gconstpointer b)
 	const struct topo_obj *ai = a;
 	const struct topo_obj *bi = b;
 
-	return ai->number - bi->number;	
+	return ai->number - bi->number;
 }
 
 struct topo_obj *find_cpu_core(int cpunr)
@@ -455,10 +457,9 @@ struct topo_obj *find_cpu_core(int cpunr)
 	entry = g_list_find_custom(cpus, &find, compare_cpus);
 
 	return entry ? entry->data : NULL;
-}	
+}
 
 int get_cpu_count(void)
 {
 	return g_list_length(cpus);
 }
-

@@ -1,22 +1,22 @@
-/* 
+/*
  * Copyright (C) 2006, Intel Corporation
- * Copyright (C) 2012, Neil Horman <nhoramn@tuxdriver.com> 
- * 
+ * Copyright (C) 2012, Neil Horman <nhoramn@tuxdriver.com>
+ *
  * This file is part of irqbalance
  *
  * This program file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; version 2 of the License.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
  * for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program in a file named COPYING; if not, write to the 
- * Free Software Foundation, Inc., 
- * 51 Franklin Street, Fifth Floor, 
+ * along with this program in a file named COPYING; if not, write to the
+ * Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301 USA
  */
 #include "config.h"
@@ -51,7 +51,7 @@ static void find_best_object(struct topo_obj *d, void *data)
 		return;
 
 	/*
- 	 * If the hint policy is subset, then we only want 
+ 	 * If the hint policy is subset, then we only want
  	 * to consider objects that are within the irqs hint, but
  	 * only if that irq in fact has published a hint
  	 */
@@ -182,7 +182,7 @@ static void validate_object(struct topo_obj *d, void *data __attribute__((unused
 
 static void validate_object_tree_placement(void)
 {
-	for_each_object(packages, validate_object, NULL);	
+	for_each_object(packages, validate_object, NULL);
 	for_each_object(cache_domains, validate_object, NULL);
 	for_each_object(cpus, validate_object, NULL);
 }

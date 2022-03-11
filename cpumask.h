@@ -1,6 +1,7 @@
 #ifndef __LINUX_CPUMASK_H
 #define __LINUX_CPUMASK_H
 
+// Maximum number of CPUs
 #define NR_CPUS 4096
 /*
  * Cpumasks provide a bitmap suitable for representing the

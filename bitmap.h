@@ -7,11 +7,13 @@
 #include <stdint.h>
 #include <unistd.h>
 
-
+ // 一个 unsigned long 长度所能容纳多少 bit 位
 #define BITS_PER_LONG ((int)sizeof(unsigned long)*8)
 
+// bits 位的 bit 需要用几个 unsigned long 长度容纳
 #define BITS_TO_LONGS(bits) \
         (((bits)+BITS_PER_LONG-1)/BITS_PER_LONG)
+// 创建一个名为 name 的数组，元素类型为 unsigned long， 需要容纳 bits 个 bit
 #define DECLARE_BITMAP(name,bits) \
         unsigned long name[BITS_TO_LONGS(bits)]
 #define ALIGN(x,a) (((x)+(a)-1UL)&~((a)-1UL))

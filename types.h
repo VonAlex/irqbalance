@@ -5,6 +5,7 @@
 
 #include "cpumask.h"
 
+// 树的层级
 #define	BALANCE_NONE		0
 #define BALANCE_PACKAGE 	1
 #define BALANCE_CACHE		2
@@ -35,6 +36,7 @@
  */
 #define IRQ_FLAG_BANNED	1
 
+// node 类型
 enum obj_type_e {
 	OBJ_TYPE_CPU,
 	OBJ_TYPE_CACHE,
@@ -68,7 +70,7 @@ struct irq_info {
 	uint64_t last_irq_count;
 	uint64_t load;
 	int moved;
-struct topo_obj *assigned_obj;
+    struct topo_obj *assigned_obj;
 };
 
 #endif

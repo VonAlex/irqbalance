@@ -1,22 +1,22 @@
-/* 
+/*
  * Copyright (C) 2006, Intel Corporation
- * Copyright (C) 2012, Neil Horman <nhorman@tuxdriver.com> 
- * 
+ * Copyright (C) 2012, Neil Horman <nhorman@tuxdriver.com>
+ *
  * This file is part of irqbalance
  *
  * This program file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; version 2 of the License.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
  * for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program in a file named COPYING; if not, write to the 
- * Free Software Foundation, Inc., 
- * 51 Franklin Street, Fifth Floor, 
+ * along with this program in a file named COPYING; if not, write to the
+ * Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301 USA
  */
 #include "config.h"
@@ -32,7 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef HAVE_GETOPT_LONG 
+#ifdef HAVE_GETOPT_LONG
 #include <getopt.h>
 #endif
 
@@ -41,10 +41,14 @@
 #endif
 #include "irqbalance.h"
 
+// volatile 告诉编译器在编译的时候不要优化掉这个变量
 volatile int keep_going = 1;
+
+// 3 种 mode
 int one_shot_mode;
 int debug_mode;
 int foreground_mode;
+
 int numa_avail;
 int need_rescan;
 unsigned int log_mask = TO_ALL;
@@ -59,16 +63,16 @@ long HZ;
 
 void sleep_approx(int seconds)
 {
-	struct timespec ts;
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
+	struct timespec ts;    // 包含 s 和 ns
+	struct timeval tv;     // 包含 s 和 us
+	gettimeofday(&tv, NULL); // 获取时间精确到 us
 	ts.tv_sec = seconds;
 	ts.tv_nsec = -tv.tv_usec*1000;
 	while (ts.tv_nsec < 0) {
 		ts.tv_sec--;
 		ts.tv_nsec += 1000000000;
 	}
-	nanosleep(&ts, NULL);
+	nanosleep(&ts, NULL); 	// ns 精度设置睡眠时间
 }
 
 #ifdef HAVE_GETOPT_LONG
@@ -179,16 +183,11 @@ static void parse_command_line(int argc, char **argv)
 #endif
 
 /*
- * This builds our object tree.  The Heirarchy is pretty straightforward
- * At the top are numa_nodes
- * All CPU packages belong to a single numa_node
- * All Cache domains belong to a CPU package
- * All CPU cores belong to a cache domain
+ * 创建 object tree，层次结构很明确
+ * 最顶层是 numa_nodes，向下以此为CPU packages、Cache domains以及CPU cores
  *
- * Objects are built in that order (top down)
- *
- * Object workload is the aggregate sum of the
- * workload of the objects below it
+ * objects 以上结构自顶而下创建
+ * 一个 Object 的负载是它下面所有 objects 负载之和
  */
 static void build_object_tree(void)
 {
@@ -209,6 +208,7 @@ static void dump_object_tree(void)
 	for_each_object(numa_nodes, dump_numa_node_info, NULL);
 }
 
+// 将中断加入到迁移表中
 void force_rebalance_irq(struct irq_info *info, void *data __attribute__((unused)))
 {
 	if (info->level == BALANCE_NONE)
@@ -239,6 +239,7 @@ int main(int argc, char** argv)
 {
 	struct sigaction action, hupaction;
 
+// 确定进程运行模式 debug、foreground 或者 oneshot
 #ifdef HAVE_GETOPT_LONG
 	parse_command_line(argc, argv);
 #else
@@ -257,26 +258,31 @@ int main(int argc, char** argv)
  	 */
 	openlog(argv[0], 0, LOG_DAEMON);
 
+// 通过环境变量获得要禁用 cpu，并解析成 bitmap
 	if (getenv("IRQBALANCE_BANNED_CPUS"))  {
 		cpumask_parse_user(getenv("IRQBALANCE_BANNED_CPUS"), strlen(getenv("IRQBALANCE_BANNED_CPUS")), banned_cpus);
 	}
 
-	if (getenv("IRQBALANCE_ONESHOT")) 
+// 通过环境变量的方式设置运行模式
+	if (getenv("IRQBALANCE_ONESHOT"))
 		one_shot_mode=1;
 
-	if (getenv("IRQBALANCE_DEBUG")) 
+	if (getenv("IRQBALANCE_DEBUG"))
 		debug_mode=1;
 
 	/*
  	 * If we are't in debug mode, don't dump anything to the console
  	 * note that everything goes to the console before we check this
+	  *
+	  * 如果不是 debug 模式， 不在 console 端打印出任何东西，
+	  * 在我们检查之前，所有的东西还是要打印到 console 端的
  	 */
 	if (!debug_mode)
 		log_mask &= ~TO_CONSOLE;
 
-	if (numa_available() > -1) {
+	if (numa_available() > -1) {  // 默认 -1
 		numa_avail = 1;
-	} else 
+	} else
 		log(TO_CONSOLE, LOG_INFO, "This machine seems not NUMA capable.\n");
 
 	if (banscript) {
@@ -284,7 +290,7 @@ int main(int argc, char** argv)
 		log(TO_ALL, LOG_WARNING, "%s\n", note);
 	}
 
-	HZ = sysconf(_SC_CLK_TCK);
+	HZ = sysconf(_SC_CLK_TCK); // the number of clock ticks per second，时钟频率
 	if (HZ == -1) {
 		log(TO_ALL, LOG_WARNING, "Unable to determin HZ defaulting to 100\n");
 		HZ = 100;
@@ -296,11 +302,12 @@ int main(int argc, char** argv)
 	sigaction(SIGINT, &action, NULL);
 
 	build_object_tree();
-	if (debug_mode)
+	if (debug_mode)   // debug 模式下， 打印 numa_node 节点的信息包括 number 和 cpu mask
 		dump_object_tree();
 
 
 	/* On single core UP systems irqbalance obviously has no work to do */
+	// 单核 cpu 没必要做 irqbalance
 	if (core_count<2) {
 		char *msg = "Balancing is ineffective on systems with a "
 			    "single cpu.  Shutting down\n";
@@ -334,7 +341,7 @@ int main(int argc, char** argv)
 
 	for_each_irq(NULL, force_rebalance_irq, NULL);
 
-	parse_proc_interrupts();
+	parse_proc_interrupts(); // 主要是计算每个中断的次数
 	parse_proc_stat();
 
 	hupaction.sa_handler = force_rescan;
@@ -342,11 +349,9 @@ int main(int argc, char** argv)
 	hupaction.sa_flags = 0;
 	sigaction(SIGHUP, &hupaction, NULL);
 
-	while (keep_going) {
+	while (keep_going) { //  循环执行，时间周期为 SLEEP_INTERVAL
 		sleep_approx(SLEEP_INTERVAL);
 		log(TO_CONSOLE, LOG_INFO, "\n\n\n-----------------------------------------------------------------------------\n");
-
-
 		clear_work_stats();
 		parse_proc_interrupts();
 		parse_proc_stat();
@@ -367,14 +372,14 @@ int main(int argc, char** argv)
 			clear_work_stats();
 			parse_proc_interrupts();
 			parse_proc_stat();
-		} 
+		}
 
-		if (cycle_count)	
+		if (cycle_count)
 			update_migration_status();
 
 		calculate_placement();
 		activate_mappings();
-	
+
 		if (debug_mode)
 			dump_tree();
 		if (one_shot_mode)

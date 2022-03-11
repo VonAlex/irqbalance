@@ -1,22 +1,22 @@
-/* 
+/*
  * Copyright (C) 2006, Intel Corporation
- * Copyright (C) 2012, Neil Horman <nhorman@tuxdriver.com> 
- * 
+ * Copyright (C) 2012, Neil Horman <nhorman@tuxdriver.com>
+ *
  * This file is part of irqbalance
  *
  * This program file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
  * Free Software Foundation; version 2 of the License.
- * 
+ *
  * This program is distributed in the hope that it will be useful, but WITHOUT
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
  * for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
- * along with this program in a file named COPYING; if not, write to the 
- * Free Software Foundation, Inc., 
- * 51 Franklin Street, Fifth Floor, 
+ * along with this program in a file named COPYING; if not, write to the
+ * Free Software Foundation, Inc.,
+ * 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301 USA
  */
 
@@ -38,15 +38,15 @@
 
 
 struct load_balance_info {
-	unsigned long long int total_load;
-	unsigned long long avg_load;
-	unsigned long long min_load;
-	unsigned long long adjustment_load;
-	int load_sources;
-	unsigned long long int deviations;
+	unsigned long long int total_load;  //系统总中断负载
+	unsigned long long avg_load;       //系统平均中断负载
+	unsigned long long min_load;//系统中的中断负载最小值
+	unsigned long long adjustment_load; //记录迁移中断的域的总负载
+	int load_sources; //负载域计数器
+	unsigned long long int deviations; //差值
 	long double std_deviation;
-	unsigned int num_over;
-	unsigned int num_under;
+	unsigned int num_over;  //超过平均负载的域计数器
+	unsigned int num_under; //低于平均负载的域计数器
 	unsigned int num_powersave;
 	struct topo_obj *powersave;
 };
@@ -77,8 +77,8 @@ static void move_candidate_irqs(struct irq_info *info, void *data)
 {
 	struct load_balance_info *lb_info = data;
 
-	/* never move an irq that has an afinity hint when 
- 	 * hint_policy is HINT_POLICY_EXACT 
+	/* never move an irq that has an afinity hint when
+ 	 * hint_policy is HINT_POLICY_EXACT
  	 */
 	if (hint_policy == HINT_POLICY_EXACT)
 		if (!cpus_empty(info->affinity_hint))
@@ -198,4 +198,3 @@ void dump_workloads(void)
 {
 	for_each_irq(NULL, dump_workload, NULL);
 }
-
